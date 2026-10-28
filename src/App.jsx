@@ -1,0 +1,73 @@
+import { useMemo, useState } from 'react'
+import { ArrowDown, ArrowRight, Calculator, CarFront, Check, ChevronDown, CircleHelp, Download, Info, Menu, Phone, Printer, RotateCcw, ShieldCheck, Sparkles, Wallet } from 'lucide-react'
+
+const euro = new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' })
+const money = value => euro.format(value)
+const dateText = date => new Intl.DateTimeFormat('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' }).format(date)
+
+function buildPlan(principal, annualRate, months) {
+  const monthlyRate = annualRate / 100 / 12
+  const regular = monthlyRate === 0 ? principal / months : principal * monthlyRate / (1 - (1 + monthlyRate) ** -months)
+  let balance = principal
+  const firstDue = new Date()
+  firstDue.setMonth(firstDue.getMonth() + 1)
+  firstDue.setDate(1)
+  return Array.from({ length: months }, (_, index) => {
+    const interest = balance * monthlyRate
+    const installment = index === months - 1 ? balance + interest : regular
+    const capital = installment - interest
+    balance = Math.max(0, balance - capital)
+    const due = new Date(firstDue)
+    due.setMonth(due.getMonth() + index)
+    return { number: index + 1, due, installment, capital, interest, balance }
+  })
+}
+
+function Field({ label, value, onChange, prefix, suffix, min, max, step = 1, helper }) {
+  return <label className="field"><span className="field-label">{label}</span><span className="input-wrap">{prefix && <span className="input-affix">{prefix}</span>}<input type="number" inputMode="decimal" min={min} max={max} step={step} value={value} onChange={event => onChange(event.target.value)} />{suffix && <span className="input-affix">{suffix}</span>}</span>{helper && <span className="field-helper">{helper}</span>}</label>
+}
+
+export default function App() {
+  const [amount, setAmount] = useState('18000')
+  const [rate, setRate] = useState('6.95')
+  const [months, setMonths] = useState('60')
+  const [activeTab, setActiveTab] = useState('resumen')
+  const [menuOpen, setMenuOpen] = useState(false)
+  const principal = Math.max(0, Number(amount) || 0)
+  const annualRate = Math.max(0, Number(rate) || 0)
+  const term = Math.min(120, Math.max(1, Math.round(Number(months) || 1)))
+  const plan = useMemo(() => principal > 0 ? buildPlan(principal, annualRate, term) : [], [principal, annualRate, term])
+  const monthlyPayment = plan[0]?.installment || 0
+  const totalInterest = plan.reduce((sum, row) => sum + row.interest, 0)
+  const totalToPay = principal + totalInterest
+
+  const reset = () => { setAmount('18000'); setRate('6.95'); setMonths('60') }
+  const exportCsv = () => {
+    const header = ['Vencimiento', 'Importe del recibo', 'Amortización de capital', 'Intereses', 'Capital pendiente']
+    const body = plan.map(row => [dateText(row.due), row.installment.toFixed(2), row.capital.toFixed(2), row.interest.toFixed(2), row.balance.toFixed(2)])
+    const csv = [header, ...body].map(row => row.map(cell => `"${cell}"`).join(';')).join('\n')
+    const link = document.createElement('a')
+    link.href = URL.createObjectURL(new Blob(['\ufeff', csv], { type: 'text/csv;charset=utf-8' }))
+    link.download = 'simulacion-compostela-movil.csv'
+    link.click()
+    URL.revokeObjectURL(link.href)
+  }
+
+  return <div className="app-shell">
+    <header className="topbar"><a className="brand" href="#inicio" aria-label="Compostela Móvil"><span className="brand-mark">C<span>.</span></span><span className="brand-copy"><strong>COMPOSTELA MÓVIL</strong><small>CONCESIONARIO OFICIAL TOYOTA</small></span></a><nav className={menuOpen ? 'nav-links open' : 'nav-links'}><a href="https://compostelamovil.com/" target="_blank" rel="noreferrer">Concesionario <ArrowRight size={13} /></a><a href="#simulador">Herramientas</a><a href="https://compostelamovil.com/" target="_blank" rel="noreferrer">Sobre nosotros</a></nav><a className="contact-link" href="tel:+34981524353"><Phone size={15} /><span>981 524 353</span></a><button className="menu-toggle" onClick={() => setMenuOpen(!menuOpen)} aria-label="Abrir menú"><Menu size={21} /></button></header>
+
+    <main id="inicio"><section className="hero"><div className="hero-content"><div className="eyebrow"><span className="eyebrow-dot" /> TU PRÓXIMO TOYOTA, A TU MANERA</div><h1>Decisiones claras.<br /><span>Viajes que empiezan.</span></h1><p>Diseña una financiación a tu medida y descubre, con total claridad, cada cuota de tu próximo Toyota.</p><a className="hero-link" href="#simulador">Crear mi simulación <ArrowDown size={15} /></a></div><div className="hero-art" aria-hidden="true"><div className="orbit orbit-one" /><div className="orbit orbit-two" /><span className="hero-number">01 <i>/ 03</i></span><div className="art-card"><CarFront size={24} strokeWidth={1.4} /><span>Tu próximo<br />destino empieza aquí</span></div><div className="art-glow" /></div><div className="hero-foot"><span>SANTIAGO DE COMPOSTELA · GALICIA</span><span>UN ESPACIO PARA ELEGIR CON CALMA <span className="foot-line" /></span></div></section>
+
+    <section className="workspace" id="simulador"><div className="section-heading"><div><div className="section-kicker">HERRAMIENTA 01 <span>—</span> FINANCIACIÓN</div><h2>Un plan que encaja <em>contigo.</em></h2><p>Ajusta los datos y explora la propuesta que mejor acompaña tu camino.</p></div><div className="secure-note"><ShieldCheck size={16} /><span>Simulación privada<br /><small>Tus datos se quedan aquí</small></span></div></div>
+
+      <div className="calculator-layout"><section className="input-card"><div className="card-heading"><div className="icon-box"><Calculator size={18} /></div><div><h3>Configura tu financiación</h3><p>Tres datos para ver tu plan</p></div><button className="reset-button" onClick={reset} title="Restablecer"><RotateCcw size={16} /></button></div><div className="fields"><Field label="Importe a financiar" value={amount} onChange={setAmount} prefix="€" min="1" step="100" helper="Cantidad del préstamo, sin incluir entrada." /><div className="field-row"><Field label="Interés nominal anual (TIN)" value={rate} onChange={setRate} suffix="%" min="0" max="100" step="0.05" /><Field label="Plazo" value={months} onChange={setMonths} suffix="meses" min="1" max="120" /></div><div className="term-presets"><span>Plazo habitual</span>{[36, 48, 60, 72].map(value => <button key={value} className={term === value ? 'preset active' : 'preset'} onClick={() => setMonths(String(value))}>{value} m</button>)}</div></div><div className="estimate-note"><Info size={15} /><span>Estimación calculada con cuota constante y TIN. No incluye comisiones, seguros ni otros productos vinculados.</span></div></section>
+
+      <section className="result-card"><div className="result-top"><span className="result-label"><Sparkles size={14} /> TU PROPUESTA ORIENTATIVA</span><span className="result-tag">PERSONALIZABLE</span></div><div className="monthly"><span>Tu cuota mensual</span><div>{money(monthlyPayment).replace(/\s?€/, '')}<small> €</small></div><p>durante {term} meses <span>·</span> TIN {annualRate.toLocaleString('es-ES', { maximumFractionDigits: 2 })}%</p></div><div className="result-divider" /><div className="result-stats"><div><span>Importe financiado</span><strong>{money(principal)}</strong></div><div><span>Intereses estimados</span><strong>{money(totalInterest)}</strong></div><div><span>Total a devolver</span><strong>{money(totalToPay)}</strong></div></div><div className="result-footer"><div className="avatar-stack"><span>CM</span></div><span>¿Lo vemos juntos?<br /><small>Estamos aquí para ayudarte</small></span><a href="tel:+34981524353" aria-label="Llamar al concesionario"><ArrowRight size={17} /></a></div></section></div>
+
+      <section className="schedule-section"><div className="schedule-top"><div><div className="section-kicker">DETALLE DEL PLAN</div><h3>Así evoluciona tu financiación</h3><p>Consulta cada recibo y cuánto capital te queda por amortizar.</p></div><div className="schedule-actions"><button className="action-button" onClick={exportCsv}><Download size={15} /> Descargar CSV</button><button className="action-button print-action" onClick={() => window.print()}><Printer size={15} /> Imprimir</button></div></div><div className="schedule-summary"><div><span><Wallet size={14} /> IMPORTE TOTAL DEL CRÉDITO</span><strong>{money(principal)}</strong></div><div><span><Calculator size={14} /> TOTAL INTERESES</span><strong>{money(totalInterest)}</strong></div><div><span><Check size={14} /> N.º DE CUOTAS</span><strong>{term} <small>mensualidades</small></strong></div></div><div className="table-toolbar"><div className="table-tabs"><button className={activeTab === 'resumen' ? 'table-tab active' : 'table-tab'} onClick={() => setActiveTab('resumen')}>Primeras cuotas</button><button className={activeTab === 'completo' ? 'table-tab active' : 'table-tab'} onClick={() => setActiveTab('completo')}>Plan completo <span>{term}</span></button></div><span className="table-caption"><CircleHelp size={14} /> Importes en euros</span></div><div className="table-scroll"><table><thead><tr><th>N.º</th><th>Vencimiento</th><th>Importe recibo</th><th>Amort. capital</th><th>Intereses</th><th>Capital pendiente</th></tr></thead><tbody>{(activeTab === 'resumen' ? plan.slice(0, 8) : plan).map(row => <tr key={row.number}><td className="row-number">{String(row.number).padStart(2, '0')}</td><td>{dateText(row.due)}</td><td className="amount-cell">{money(row.installment)}</td><td>{money(row.capital)}</td><td>{money(row.interest)}</td><td className="balance-cell">{money(row.balance)}</td></tr>)}</tbody></table></div><div className="table-bottom"><span>Simulación orientativa · Cálculo de cuota constante con sistema francés.</span><button onClick={() => { setActiveTab(activeTab === 'resumen' ? 'completo' : 'resumen') }}>{activeTab === 'resumen' ? <>Ver las {term} cuotas <ChevronDown size={15} /></> : <>Ver primeras cuotas <ChevronDown size={15} className="rotate-up" /></>}</button></div></section>
+
+      <section className="advisor-banner"><div className="advisor-icon"><CarFront size={21} /></div><div><strong>¿Quieres convertir esta simulación en una propuesta real?</strong><p>Hablemos de tu próximo Toyota. Nuestro equipo te acompaña paso a paso.</p></div><a href="tel:+34981524353">Hablemos <ArrowRight size={15} /></a></section>
+      <div className="disclaimer"><Info size={14} /><p>Esta herramienta ofrece una estimación orientativa y no constituye una oferta vinculante ni una aprobación de financiación. La cuota definitiva, el TIN, la TAE y el coste total dependerán de la evaluación de la entidad financiera, las comisiones, productos opcionales y condiciones vigentes. Consulta la información precontractual antes de contratar.</p></div>
+    </section></main><footer className="footer"><a className="brand footer-brand" href="#inicio"><span className="brand-mark">C<span>.</span></span><span className="brand-copy"><strong>COMPOSTELA MÓVIL</strong><small>CONCESIONARIO OFICIAL TOYOTA</small></span></a><span>TRAVESÍA DE REBORIDO 13 · TEO, SANTIAGO DE COMPOSTELA</span><a href="https://compostelamovil.com/" target="_blank" rel="noreferrer">COMPOSTELAMOVIL.COM <ArrowRight size={12} /></a></footer>
+  </div>
+}
