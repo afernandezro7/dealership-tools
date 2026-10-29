@@ -36,10 +36,10 @@ function Field({ label, value, onChange, prefix, suffix, min, max, step = 1, hel
 }
 
 export default function App() {
-  const [amount, setAmount] = useState('18000')
-  const [rate, setRate] = useState('6.95')
-  const [months, setMonths] = useState('60')
-  const [balloonAmount, setBalloonAmount] = useState('0')
+  const [amount, setAmount] = useState('15644.18')
+  const [rate, setRate] = useState('8.5')
+  const [months, setMonths] = useState('48')
+  const [balloonAmount, setBalloonAmount] = useState('5133.64')
   const [tradeValue, setTradeValue] = useState('')
   const [activeTab, setActiveTab] = useState('resumen')
   const [menuOpen, setMenuOpen] = useState(false)
@@ -55,7 +55,7 @@ export default function App() {
   const totalToPay = plan.reduce((sum, row) => sum + row.installment, 0)
   const finalPayment = plan.find(row => row.isFinal)?.installment || 0
 
-  const reset = () => { setAmount('18000'); setRate('6.95'); setMonths('60'); setBalloonAmount('0'); setTradeValue('') }
+  const reset = () => { setAmount('15644.18'); setRate('8.5'); setMonths('48'); setBalloonAmount('5133.64'); setTradeValue('') }
   const exportCsv = () => {
     const header = ['Vencimiento', 'Importe del recibo', 'Amortización de capital', 'Intereses', 'Capital pendiente']
     const body = plan.map(row => [dateText(row.due), row.installment.toFixed(2), row.capital.toFixed(2), row.interest.toFixed(2), row.balance.toFixed(2)])
