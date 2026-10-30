@@ -6,6 +6,7 @@ const money = value => euro.format(value)
 const dateText = date => new Intl.DateTimeFormat('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' }).format(date)
 const toCents = value => Math.round((value + Number.EPSILON) * 100)
 const fromCents = cents => cents / 100
+const interestToCents = (balance, monthlyRate) => Math.floor(balance * monthlyRate * 100 + 1e-8)
 
 function buildPlan(principal, annualRate, months, balloon) {
   const monthlyRate = annualRate / 100 / 12
@@ -17,7 +18,7 @@ function buildPlan(principal, annualRate, months, balloon) {
   firstDue.setMonth(firstDue.getMonth() + 1)
   firstDue.setDate(1)
   const regularPayments = Array.from({ length: months }, (_, index) => {
-    const interestCents = toCents(fromCents(balanceCents) * monthlyRate)
+    const interestCents = interestToCents(fromCents(balanceCents), monthlyRate)
     const targetBalloonBalanceCents = finalInstallment > 0
       ? toCents(finalInstallment / (1 + monthlyRate))
       : 0
@@ -34,7 +35,7 @@ function buildPlan(principal, annualRate, months, balloon) {
     return { number: index + 1, due, installment: fromCents(installmentCents), capital: fromCents(capitalCents), interest: fromCents(interestCents), balance: fromCents(balanceCents), isFinal: false }
   })
   if (finalInstallment > 0) {
-    const interestCents = toCents(fromCents(balanceCents) * monthlyRate)
+    const interestCents = interestToCents(fromCents(balanceCents), monthlyRate)
     const installmentCents = toCents(finalInstallment)
     const capitalCents = installmentCents - interestCents
     const due = new Date(firstDue)
