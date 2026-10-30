@@ -4,29 +4,42 @@ import { ArrowDown, ArrowRight, Calculator, CarFront, Check, ChevronDown, Circle
 const euro = new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' })
 const money = value => euro.format(value)
 const dateText = date => new Intl.DateTimeFormat('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' }).format(date)
+const toCents = value => Math.round((value + Number.EPSILON) * 100)
+const fromCents = cents => cents / 100
 
 function buildPlan(principal, annualRate, months, balloon) {
   const monthlyRate = annualRate / 100 / 12
   const finalInstallment = Math.max(0, balloon)
   const regular = monthlyRate === 0 ? (principal - finalInstallment) / months : (principal - finalInstallment / (1 + monthlyRate) ** (months + 1)) * monthlyRate / (1 - (1 + monthlyRate) ** -months)
-  let balance = principal
+  const regularCents = toCents(regular)
+  let balanceCents = toCents(principal)
   const firstDue = new Date()
   firstDue.setMonth(firstDue.getMonth() + 1)
   firstDue.setDate(1)
   const regularPayments = Array.from({ length: months }, (_, index) => {
-    const interest = balance * monthlyRate
-    const installment = regular
-    const capital = installment - interest
-    balance = Math.max(0, balance - capital)
+    const interestCents = toCents(fromCents(balanceCents) * monthlyRate)
+    const targetBalloonBalanceCents = finalInstallment > 0
+      ? toCents(finalInstallment / (1 + monthlyRate))
+      : 0
+    const regularCapitalCents = Math.min(balanceCents, regularCents - interestCents)
+    // Ajusta la última cuota ordinaria para que, con el interés del mes final,
+    // el recibo de vencimiento coincida exactamente con el VFMG configurado.
+    const capitalCents = index === months - 1 && finalInstallment > 0
+      ? Math.max(0, balanceCents - targetBalloonBalanceCents)
+      : regularCapitalCents
+    const installmentCents = capitalCents + interestCents
+    balanceCents -= capitalCents
     const due = new Date(firstDue)
     due.setMonth(due.getMonth() + index)
-    return { number: index + 1, due, installment, capital, interest, balance, isFinal: false }
+    return { number: index + 1, due, installment: fromCents(installmentCents), capital: fromCents(capitalCents), interest: fromCents(interestCents), balance: fromCents(balanceCents), isFinal: false }
   })
   if (finalInstallment > 0) {
-    const interest = balance * monthlyRate
+    const interestCents = toCents(fromCents(balanceCents) * monthlyRate)
+    const installmentCents = toCents(finalInstallment)
+    const capitalCents = installmentCents - interestCents
     const due = new Date(firstDue)
     due.setMonth(due.getMonth() + months)
-    regularPayments.push({ number: months + 1, due, installment: balance + interest, capital: balance, interest, balance: 0, isFinal: true })
+    regularPayments.push({ number: months + 1, due, installment: fromCents(installmentCents), capital: fromCents(capitalCents), interest: fromCents(interestCents), balance: 0, isFinal: true })
   }
   return regularPayments
 }
@@ -51,8 +64,8 @@ export default function App() {
   const renewalDifference = valuation > 0 ? valuation - balloon : null
   const plan = useMemo(() => principal > 0 ? buildPlan(principal, annualRate, term, balloon) : [], [principal, annualRate, term, balloon])
   const monthlyPayment = plan[0]?.installment || 0
-  const totalInterest = plan.reduce((sum, row) => sum + row.interest, 0)
-  const totalToPay = plan.reduce((sum, row) => sum + row.installment, 0)
+  const totalInterest = fromCents(plan.reduce((sum, row) => sum + toCents(row.interest), 0))
+  const totalToPay = fromCents(plan.reduce((sum, row) => sum + toCents(row.installment), 0))
   const finalPayment = plan.find(row => row.isFinal)?.installment || 0
 
   const reset = () => { setAmount('15644.18'); setRate('8.5'); setMonths('48'); setBalloonAmount('5133.64'); setTradeValue('') }
