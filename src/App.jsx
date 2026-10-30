@@ -8,6 +8,28 @@ const toCents = value => Math.round((value + Number.EPSILON) * 100)
 const fromCents = cents => cents / 100
 const interestToCents = (balance, monthlyRate) => Math.floor(balance * monthlyRate * 100 + 1e-8)
 
+function normalizeNumberInput(value) {
+  const cleaned = value.replace(/[^\d.,+-]/g, '').replace(/(?!^)[+-]/g, '')
+  if (!cleaned || cleaned === '-' || cleaned === '+') return cleaned
+  const comma = cleaned.lastIndexOf(',')
+  const dot = cleaned.lastIndexOf('.')
+  if (comma >= 0 && dot >= 0) {
+    const decimalSeparator = comma > dot ? ',' : '.'
+    const thousandsSeparator = decimalSeparator === ',' ? '.' : ','
+    return cleaned.split(thousandsSeparator).join('').replace(decimalSeparator, '.')
+  }
+  if (comma >= 0) {
+    const pieces = cleaned.split(',')
+    return pieces.length > 2 ? `${pieces.slice(0, -1).join('')}.${pieces.at(-1)}` : cleaned.replace(',', '.')
+  }
+  if (dot >= 0) {
+    const pieces = cleaned.split('.')
+    if (pieces.length > 2) return `${pieces.slice(0, -1).join('')}.${pieces.at(-1)}`
+    if (pieces.length === 2 && pieces[1].length === 3 && pieces[0].length <= 3) return pieces.join('')
+  }
+  return cleaned
+}
+
 function buildPlan(principal, annualRate, months, balloon) {
   const monthlyRate = annualRate / 100 / 12
   const finalInstallment = Math.max(0, balloon)
@@ -46,7 +68,7 @@ function buildPlan(principal, annualRate, months, balloon) {
 }
 
 function Field({ label, value, onChange, prefix, suffix, min, max, step = 1, helper }) {
-  return <label className="field"><span className="field-label">{label}</span><span className="input-wrap">{prefix && <span className="input-affix">{prefix}</span>}<input type="number" inputMode="decimal" min={min} max={max} step={step} value={value} onChange={event => onChange(event.target.value)} />{suffix && <span className="input-affix">{suffix}</span>}</span>{helper && <span className="field-helper">{helper}</span>}</label>
+  return <label className="field"><span className="field-label">{label}</span><span className="input-wrap">{prefix && <span className="input-affix">{prefix}</span>}<input type="text" inputMode="decimal" min={min} max={max} step={step} value={value} onChange={event => onChange(normalizeNumberInput(event.target.value))} />{suffix && <span className="input-affix">{suffix}</span>}</span>{helper && <span className="field-helper">{helper}</span>}</label>
 }
 
 export default function App() {
